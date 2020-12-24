@@ -1,0 +1,12 @@
+name: Diabetic_Peripheral_Neuropathy_Risk
+title: Diabetic_Peripheral_Neuropathy_Risk
+username:
+account: ptran25
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3400826
+bundleId: 4023776
+url: https://ptran25.shinyapps.io/Diabetic_Peripheral_Neuropathy_Risk/
+when: 1608757341.07091
+asMultiple: FALSE
+asStatic: FALSE
