@@ -8,7 +8,6 @@ rm(list=ls(all=TRUE))
     knitr::opts_knit$set(root.dir = normalizePath("/Users/paultran/Box/Students/T1D_complications")) 
 ```
 
-Target journal: Diabetes Care IF 16
 Clinical Risk of Type 1 Diabetes Complications: A tool to motivate change in patient behavior
 Neuropathy, retinopathy, and nephropathy are common complications
 patients seeing their true risk and working on modifiable risk factors are the best methods for primary prevention of T1D complications
@@ -16,9 +15,6 @@ patients seeing their true risk and working on modifiable risk factors are the b
 We used an independent cross sectional study, PAGODA, to develop a clinical risk score for diabetic peripheral neuropathy in T1D patients. 
 
 #Table 1. PAGODA cohort characteristics
-n patients, sex, age distribution, duration distribution, DQ/DR genetics, PMH of cardiovascular diseases (HTN,MI,TIA,CVA), DPN, DAN, Retino, Nephro, Dyslipidemia. Distribution of cont variables, BP, all Lipids (cholesterol, LDL, HDL, triglycerides), BUN, Creatinine, and others
-
-#Figure 1. Venn Diagram
 
 ```{r}
 library(limma)
@@ -157,163 +153,6 @@ B. Nomogram
 C. AUC of test data
 D. Interation of Age and T1D Dur
 
-Finding is that clinical variables are good predictors of T1D complication risk. Interaction is interesting
-
-how to optimize model? rfe, manual selection, lasso
-which variables to start with? 
-DPN: Autonomic_Neuropathy3+DM_Retinopathy3+DM_Nephropathy3+Sex+HTN+avg.Systolic+avg.diastolic+Dyslipidemia+CAD3+Dr_Age+Dx_Age+Dur+Hemoglobin+avg.BUN
-CAN:
-
-
-#interaction of age and dur
-
-```{r}
-
-library(caret)
-library(doParallel)
-library(dplyr)
-library(pROC)
-
-T1Dcomp_alldata<-read.csv("2_T1DComplications data_cleaned for Paul.csv")
-attach(T1Dcomp_alldata)
-T1Dcomp_alldata$DPN<-ifelse(Peripheral_Neuropathy3=="Yes",1,0)
-T1Dcomp_alldata$CAN<-ifelse(Autonomic_Neuropathy3=="Yes",1,0)
-T1Dcomp_alldata$DR<-ifelse(DM_Retinopathy3=="Yes",1,0)
-T1Dcomp_alldata$DN<-ifelse(DM_Nephropathy3=="Yes",1,0)
-
-
-
- # 1) DPN
-dpn_idx = createDataPartition(Peripheral_Neuropathy3, p = 0.75, list = FALSE)
-dpn_trn = T1Dcomp_alldata[dpn_idx, ] #548
-dpn_tst = T1Dcomp_alldata[-dpn_idx, ] #182
-
-set.seed(123)
-my_dpn_int_model <- train(
-  form = Peripheral_Neuropathy3~Dr_Age*Dur,
-  method = "glm",
-  family = "binomial",
-  data = dpn_trn,
-  trControl = trainControl(method = "repeatedcv",
-                           number = 10,
-                           repeats = 5),
-  na.action = na.pass
-)
-
-my_dpn_add_model <- train(
-  form = Peripheral_Neuropathy3~Dr_Age+Dur,
-  method = "glm",
-  family = "binomial",
-  data = dpn_trn,
-  trControl = trainControl(method = "repeatedcv",
-                           number = 10,
-                           repeats = 5),
-  na.action = na.pass
-)
-
-
-dpn.aov<-anova(my_dpn_add_model$finalModel,my_dpn_int_model$finalModel)
-
-my_dpn_add_model$results;my_dpn_int_model$results
-results2<-resamples(list(mod1=my_dpn_add_model,mod2=my_dpn_int_model))
-summary(results2);bwplot(results2);dpn.aov
-
-dpn_test_prob = predict(my_dpn_add_model, newdata = dpn_tst, type = "prob",na.action = na.pass)
-dpn_test_roc = roc(dpn_tst$Peripheral_Neuropathy3 ~ dpn_test_prob$Yes, plot = TRUE, print.auc = TRUE)
-
-
- # 2) DAN
-dan_idx = createDataPartition(Autonomic_Neuropathy3, p = 0.75, list = FALSE)
-dan_trn = T1Dcomp_alldata[dan_idx, ] #548
-dan_tst = T1Dcomp_alldata[-dan_idx, ] #182
-
-set.seed(123)
-my_dan_add_model <- train(
-  form = Autonomic_Neuropathy3~Dr_Age+Dur,
-  method = "glm",
-  family = "binomial",
-  data = dan_trn,
-  trControl = trainControl(method = "repeatedcv",
-                           number = 10,
-                           repeats = 5),
-  na.action = na.pass
-)
-
-my_dan_int_model <- train(
-  form = Autonomic_Neuropathy3~Dr_Age*Dur,
-  method = "glm",
-  family = "binomial",
-  data = dan_trn,
-  trControl = trainControl(method = "repeatedcv",
-                           number = 10,
-                           repeats = 5),
-  na.action = na.pass
-)
-
-dan.aov<-anova(my_dan_add_model$finalModel,my_dan_int_model$finalModel)
-results2<-resamples(list(mod1=my_dan_add_model,mod2=my_dan_int_model))
-summary(results2);bwplot(results2);dan.aov;summary(my_dan_add_model);summary(my_dan_int_model)
-
-
-dan_test_prob = predict(my_dan_add_model, newdata = dan_tst, type = "prob",na.action = na.pass)
-dan_test_roc = roc(dan_tst$Autonomic_Neuropathy3 ~ dan_test_prob$Yes, plot = TRUE, print.auc = TRUE)
-
-
- # 3) Dret
-
-dret_idx = createDataPartition(neuro_dat_formodel$class, p = 0.75, list = FALSE)
-dret_trn = neuro_dat_formodel[dret_idx, ] #548
-dret_tst = neuro_dat_formodel[-dret_idx, ] #182
-
-set.seed(123)
-my_dret_model <- train(
-  form = class~HTN3+Dyslipidemia3+Dr_Age*Dur+avg.Systolic+AvgA1c+Peripheral_Neuropathy2020,
-  method = "glm",
-  family = "binomial",
-  data = dret_trn,
-  trControl = trainControl(method = "repeatedcv",
-                           number = 10,
-                           repeats = 5),
-  na.action = na.pass
-)
-
-dret_test_prob = predict(my_dret_model, newdata = dret_tst, type = "prob",na.action = na.pass)
-dret_test_roc = roc(dret_tst$class ~ dret_test_prob$Yes, plot = TRUE, print.auc = TRUE)
-
- # 4) Dnep
-neuro_dat_formodel$class<-recode_factor(neuro_alldata$Nephropathy,
-              `0` = "No",
-              `1` = "Yes")
-
-dnep_idx = createDataPartition(neuro_dat_formodel$class, p = 0.75, list = FALSE)
-dnep_trn = neuro_dat_formodel[dnep_idx, ] #548
-dnep_tst = neuro_dat_formodel[-dnep_idx, ] #182
-
-set.seed(123)
-my_dnep_model <- train(
-  form = class~HTN3+Dyslipidemia3+Dr_Age*Dur+avg.Systolic+AvgA1c+Peripheral_Neuropathy2020,
-  method = "glm",
-  family = "binomial",
-  data = dnep_trn,
-  trControl = trainControl(method = "repeatedcv",
-                           number = 10,
-                           repeats = 5),
-  na.action = na.pass
-)
-
-dnep_test_prob = predict(my_dnep_model, newdata = dnep_tst, type = "prob",na.action = na.pass)
-dnep_test_roc = roc(dnep_tst$class ~ dnep_test_prob$Yes, plot = TRUE, print.auc = TRUE)
-
-
-#Summary data
-summary(my_dpn_model);summary(my_dan_model);summary(my_dret_model);summary(my_dnep_model);dpn_test_roc;dan_test_roc;dret_test_roc;dnep_test_roc
-
-```
-
-
-
-
-
 #Comparing predictive models
 ```{r}
 
@@ -334,23 +173,23 @@ set.seed(123)
 dpn <- suppressWarnings(compare_3_models(T1Dcomp_alldata,"Peripheral_Neuropathy3",varstoassess = c("Peripheral_Neuropathy3","Autonomic_Neuropathy3","DM_Retinopathy3","DM_Nephropathy3","HTN3","Dyslipidemia3","CAD3","Prior_TIA3","Prior_MI3","Prior_CVA3","Dr_Age","Dur","Hemoglobin","Albumin","avg.Creatinine","avg.Systolic","avg.BUN","avg.MicroAlb","AvgA1c","Sex","HDL","Max_HbA1c")))
 
  # 2) DAN
-can <- compare_3_models(T1Dcomp_alldata,"Autonomic_Neuropathy3",varstoassess = c("Autonomic_Neuropathy3","Peripheral_Neuropathy3","DM_Retinopathy3","DM_Nephropathy3","HTN3","Dyslipidemia3","CAD3","Prior_TIA3","Prior_MI3","Prior_CVA3","Dr_Age","Dur","Hemoglobin","Albumin","avg.Creatinine","avg.Systolic","avg.BUN","avg.MicroAlb","AvgA1c","Sex","HDL","Max_HbA1c"))
+can <- suppressWarnings(compare_3_models(T1Dcomp_alldata,"Autonomic_Neuropathy3",varstoassess = c("Autonomic_Neuropathy3","Peripheral_Neuropathy3","DM_Retinopathy3","DM_Nephropathy3","HTN3","Dyslipidemia3","CAD3","Prior_TIA3","Prior_MI3","Prior_CVA3","Dr_Age","Dur","Hemoglobin","Albumin","avg.Creatinine","avg.Systolic","avg.BUN","avg.MicroAlb","AvgA1c","Sex","HDL","Max_HbA1c")))
 
  # 3) Dret
-dr <- compare_3_models(T1Dcomp_alldata,"DM_Retinopathy3",varstoassess = c("DM_Retinopathy3","Peripheral_Neuropathy3","Autonomic_Neuropathy3","DM_Nephropathy3","HTN3","Dyslipidemia3","CAD3","Prior_TIA3","Prior_MI3","Prior_CVA3","Dr_Age","Dur","Hemoglobin","Albumin","avg.Creatinine","avg.Systolic","avg.BUN","avg.MicroAlb","AvgA1c","Sex","HDL","Max_HbA1c"))
+dr <- suppressWarnings(compare_3_models(T1Dcomp_alldata,"DM_Retinopathy3",varstoassess = c("DM_Retinopathy3","Peripheral_Neuropathy3","Autonomic_Neuropathy3","DM_Nephropathy3","HTN3","Dyslipidemia3","CAD3","Prior_TIA3","Prior_MI3","Prior_CVA3","Dr_Age","Dur","Hemoglobin","Albumin","avg.Creatinine","avg.Systolic","avg.BUN","avg.MicroAlb","AvgA1c","Sex","HDL","Max_HbA1c")))
 
  # 4) Dnep
-dn <- compare_3_models(T1Dcomp_alldata,"DM_Nephropathy3",varstoassess = c("DM_Nephropathy3","Peripheral_Neuropathy3","Autonomic_Neuropathy3","DM_Retinopathy3","HTN3","Dyslipidemia3","CAD3","Prior_TIA3","Prior_MI3","Prior_CVA3","Dr_Age","Dur","Hemoglobin","Albumin","avg.Creatinine","avg.Systolic","avg.BUN","avg.MicroAlb","AvgA1c","Sex","HDL","Max_HbA1c"))
+dn <- suppressWarnings(compare_3_models(T1Dcomp_alldata,"DM_Nephropathy3",varstoassess = c("DM_Nephropathy3","Peripheral_Neuropathy3","Autonomic_Neuropathy3","DM_Retinopathy3","HTN3","Dyslipidemia3","CAD3","Prior_TIA3","Prior_MI3","Prior_CVA3","Dr_Age","Dur","Hemoglobin","Albumin","avg.Creatinine","avg.Systolic","avg.BUN","avg.MicroAlb","AvgA1c","Sex","HDL","Max_HbA1c")))
 
 
 #Summary data
-paste("____________________________DPN____________________________");dpn$lasso_tst_roc$auc;dpn$rfelogit_tst_roc$auc;dpn$customlogit_tst_roc$auc;dpn$lasso_coef;dpn$rfelogit_coef;dpn$customlogit_coef;paste("____________________________CAN____________________________");can$lasso_tst_roc$auc;can$rfelogit_tst_roc$auc;can$customlogit_tst_roc$auc;can$lasso_coef;can$rfelogit_coef;can$customlogit_coef;paste("____________________________DR____________________________");dr$lasso_tst_roc$auc;dr$rfelogit_tst_roc$auc;dr$customlogit_tst_roc$auc;dr$lasso_coef;dr$rfelogit_coef;dr$customlogit_coef;paste("____________________________DN____________________________");dn$lasso_tst_roc$auc;dn$rfelogit_tst_roc$auc;dn$customlogit_tst_roc$auc;dn$lasso_coef;dn$rfelogit_coef;dn$customlogit_coef
+paste("____________________________DPN____________________________");dpn$lasso_tst_roc$auc;dpn$rfelogit_tst_roc$auc;dpn$customlogit_tst_roc$auc;dpn$customlogit_tst_roc2$auc;dpn$lasso_coef;dpn$rfelogit_coef;dpn$customlogit_coef;dpn$customlogit_coef2;paste("____________________________CAN____________________________");can$lasso_tst_roc$auc;can$rfelogit_tst_roc$auc;can$customlogit_tst_roc$auc;can$customlogit_tst_roc2$auc;can$lasso_coef;can$rfelogit_coef;can$customlogit_coef;can$customlogit_coef2;paste("____________________________DR____________________________");dr$lasso_tst_roc$auc;dr$rfelogit_tst_roc$auc;dr$customlogit_tst_roc$auc;dr$customlogit_tst_roc2$auc;dr$lasso_coef;dr$rfelogit_coef;dr$customlogit_coef;dr$customlogit_coef2;paste("____________________________DN____________________________");dn$lasso_tst_roc$auc;dn$rfelogit_tst_roc$auc;dn$customlogit_tst_roc$auc;dn$customlogit_tst_roc2$auc;dn$lasso_coef;dn$rfelogit_coef;dn$customlogit_coef;dn$customlogit_coef2
 
 
 ```
 
 
-#Nomogram
+#Nomogram and interaction of age and dur
 ```{r}
 #nomogram
 library(rms)
@@ -361,57 +200,76 @@ options(datadist='ddist')
 ddist <-datadist(T1Dcomp_alldata)
 
 # 1) dpn
-dpn.mod<-lrm(Peripheral_Neuropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata)
-nom.dpn<-nomogram(dpn.mod,
+dpn.mod<-lrm(Peripheral_Neuropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+dpn.mod2<-lrm(Peripheral_Neuropathy3~Dr_Age*Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+
+nom.dpn<-nomogram(dpn.mod2,
                  lp.at = seq(-3,4,by=0.5),
                  fun = function(x)1/(1+exp(-x)),
                      fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
                      funlabel="Risk of Complication",
+                 interact = list(Dur=c(5,10,20,30,40)),
                  conf.int=c(0.1,0.7),
                  abbrev=T,
                  minlength=1,lp=F)
 
 # 2) dan
-dan.mod<-lrm(Autonomic_Neuropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata)
-nom.dan<-nomogram(dan.mod,
+dan.mod<-lrm(Autonomic_Neuropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+dan.mod2<-lrm(Autonomic_Neuropathy3~Dr_Age*Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+
+nom.dan<-nomogram(dan.mod2,
                  lp.at = seq(-3,4,by=0.5),
                  fun = function(x)1/(1+exp(-x)),
                      fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
                      funlabel="Risk of Complication",
+                 interact = list(Dur=c(5,10,20,30,40)),
                  conf.int=c(0.1,0.7),
                  abbrev=T,
                  minlength=1,lp=F)
 
 # 3) dret
-dret.mod<-lrm(DM_Retinopathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata)
-nom.dret<-nomogram(dret.mod,
+dret.mod<-lrm(DM_Retinopathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+dret.mod2<-lrm(DM_Retinopathy3~Dr_Age*Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+
+nom.dret<-nomogram(dret.mod2,
                  lp.at = seq(-3,4,by=0.5),
                  fun = function(x)1/(1+exp(-x)),
                      fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
                      funlabel="Risk of Complication",
+                 interact = list(Dur=c(5,10,20,30,40)),
                  conf.int=c(0.1,0.7),
                  abbrev=T,
                  minlength=1,lp=F)
 
 # 4) dnep
-dnep.mod<-lrm(DM_Nephropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata)
-nom.dnep<-nomogram(dnep.mod,
+dnep.mod<-lrm(DM_Nephropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+dnep.mod2<-lrm(DM_Nephropathy3~Dr_Age*Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+dnep.mod3<-lrm(DM_Nephropathy3~Dr_Age*Dur+avg.Systolic+AvgA1c+avg.Creatinine,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
+
+nom.dnep<-nomogram(dnep.mod2,
                  lp.at = seq(-3,4,by=0.5),
                  fun = function(x)1/(1+exp(-x)),
                      fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
                      funlabel="Risk of Complication",
+                 interact = list(Dur=c(5,10,20,30,40)),
                  conf.int=c(0.1,0.7),
                  abbrev=T,
                  minlength=1,lp=F)
 
+
+#rms::validate(dpn.mod, method="boot", B=500)
+
 #save data
-saveRDS(dpn.mod,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DPNmod_logit.rds")
-saveRDS(dan.mod,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DANmod_logit.rds")
-saveRDS(dret.mod,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DRETmod_logit.rds")
-saveRDS(dnep.mod,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DNEPmod_logit.rds")
+saveRDS(dpn.mod2,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DPNmod_logit.rds")
+saveRDS(dan.mod2,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DANmod_logit.rds")
+saveRDS(dret.mod2,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DRETmod_logit.rds")
+saveRDS(dnep.mod2,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DNEPmod_logit.rds")
 
 #summary and plot
-summary(dpn.mod);summary(dan.mod);summary(dret.mod);summary(dnep.mod);plot(nom.dpn);plot(nom.dan);plot(nom.dret);plot(nom.dnep)
+summary(dpn.mod2);summary(dan.mod2);summary(dret.mod2);summary(dnep.mod2);plot(nom.dpn);plot(nom.dan);plot(nom.dret);plot(nom.dnep);plot(anova(dpn.mod2), what='proportion chisq');plot(anova(dan.mod2), what='proportion chisq');plot(anova(dret.mod2), what='proportion chisq');plot(anova(dnep.mod2), what='proportion chisq');plot(Predict(dpn.mod2, fun=plogis));plot(Predict(dan.mod2, fun=plogis));plot(Predict(dret.mod2, fun=plogis));plot(Predict(dnep.mod2, fun=plogis));plot(rms::calibrate(dpn.mod, method="boot", B=500), las=1);plot(rms::calibrate(dan.mod, method="boot", B=500), las=1);plot(rms::calibrate(dret.mod, method="boot", B=500), las=1);plot(rms::calibrate(dnep.mod, method="boot", B=500), las=1);plot(rms::calibrate(dpn.mod2, method="boot", B=500), las=1);plot(rms::calibrate(dan.mod2, method="boot", B=500), las=1);plot(rms::calibrate(dret.mod2, method="boot", B=500), las=1);plot(rms::calibrate(dnep.mod2, method="boot", B=500), las=1); lrtest(dpn.mod,dpn.mod2); lrtest(dan.mod,dan.mod2); lrtest(dret.mod,dret.mod2); lrtest(dnep.mod,dnep.mod2)
+
+
+
 ```
 
 
@@ -420,13 +278,3 @@ Figure 3. Website developed to motivate change
 Key features are risk reporting for 4 complications. How would risk be modified with changes in SBP or HbA1C? How patient compares to others of same Age and T1D dur for modifiable risk factors? Methods to modify risk factors (diet, weight loss association with BP). 
 
 Conclusion: SBP and HbA1C are modifiable risk factors for T1D complications through lifestyle changes and medical management. Motivation to manage SBP and HbA1C may be more difficult for younger individuals and T1D complication risk tool may aid with this.
-
-
-give percentile for htn, a1c, and overall risk?
-
-Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
-
-When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
-
-The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
-

@@ -48,7 +48,9 @@ ui <- fluidPage(
             #              c("Yes"="Yes",
             #                "No"="No"),
             #              selected = "No"),
-            submitButton("Submit")
+            submitButton("Submit"),
+            uiOutput("git"),
+            textOutput("funding")
             
         ),
 
@@ -181,6 +183,11 @@ server <- function(input, output) {
     
     #add AUC
     #add how theyre doing compared to others same ago
+    url<-a("Github link",href="https://github.com/pmtran5884/T1D_Complications")
+    output$git <- renderUI({tagList("The manuscript describing the methods behind this prediction tool is still in progress. Please see the github link for details:", url)})
+    output$funding <- renderText(paste("
+                                         
+                                         This work was supported by grants from the National Institutes of Health (R21HD050196, R33HD050196, and 2RO1HD37800) and JDRF (1-2004-661) to JXS. PMHT was supported by NIH fellowship (F30DK12146101A1)."))
     
 }
 

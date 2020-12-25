@@ -28,7 +28,7 @@ dt3 <- predict(dpn_preobj, x)
 dpn_tst1<-as.matrix(dt3[,-findLinearCombos(dt3)$remove])
 
 
-##LASSO
+##LASSO #########
 cv.lasso <- cv.glmnet(dpn_trn1, dpn_trn_y, alpha = 1, family = "binomial")
 lasso <- glmnet(dpn_trn1, dpn_trn_y, alpha = 1, family = "binomial",
                 lambda = cv.lasso$lambda.min)
@@ -60,7 +60,7 @@ rfelogit <- rfe(dpn_trn1, dpn_trn_y,
 dpn_rfelogit_test_prob = predict(rfelogit, newdata = dpn_tst1, type = "prob",na.action = na.pass)
 dpn_rfelogit_test_roc = roc(dpn_tst[,Complication] ~ dpn_rfelogit_test_prob, plot = TRUE, print.auc = TRUE)
 
-#### Manual model 
+#### Manual model ###########
 dpn_trn1_pred<-cbind.data.frame(dpn_trn[,Complication],dpn_trn1)
 colnames(dpn_trn1_pred)[1]<-"Complication"
 my_dpn_model <- train(
@@ -77,6 +77,21 @@ my_dpn_model <- train(
 dpn_customlogit_test_prob = predict(my_dpn_model, newdata = dpn_tst1, type = "prob",na.action = na.pass)
 dpn_customlogit_test_roc = roc(dpn_tst[,Complication] ~ dpn_customlogit_test_prob$Yes, plot = TRUE, print.auc = TRUE)
 
+#### Manual model 2###########
+my_dpn_model2 <- train(
+  form = Complication~Dr_Age*Dur+avg.Systolic+AvgA1c,
+  method = "glm",
+  family = "binomial",
+  data = dpn_trn1_pred,
+  trControl = trainControl(method = "repeatedcv",
+                           number = 10,
+                           repeats = 5),
+  na.action = na.pass
+)
+
+dpn_customlogit_test_prob2 = predict(my_dpn_model2, newdata = dpn_tst1, type = "prob",na.action = na.pass)
+dpn_customlogit_test_roc2 = roc(dpn_tst[,Complication] ~ dpn_customlogit_test_prob2$Yes, plot = TRUE, print.auc = TRUE)
+
 
 comp_obj<-list("trn"=dpn_trn1,
                "trn_y"=dpn_trn_y,
@@ -88,12 +103,16 @@ comp_obj<-list("trn"=dpn_trn1,
                "rfelogit_coef"=rfelogit$fit,
                "customlogit_mod"=my_dpn_model,
                "customlogit_coef"=summary(my_dpn_model),
+               "customlogit_mod2"=my_dpn_model2,
+               "customlogit_coef2"=summary(my_dpn_model2),
                "lasso_tst_prob"=dpn_lasso_test_prob,
                "lasso_tst_roc"=dpn_lasso_test_roc,
                "rfelogit_tst_prob"=dpn_rfelogit_test_prob,
                "rfelogit_tst_roc"=dpn_rfelogit_test_roc,
                "customlogit_tst_prob"=dpn_customlogit_test_prob,
-               "customlogit_tst_roc"=dpn_customlogit_test_roc)
+               "customlogit_tst_roc"=dpn_customlogit_test_roc,
+               "customlogit_tst_prob2"=dpn_customlogit_test_prob2,
+               "customlogit_tst_roc2"=dpn_customlogit_test_roc2)
 
 comp_obj
 }
