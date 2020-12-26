@@ -2,7 +2,7 @@ Complication="Autonomic_Neuropathy3"
 varstoassess<-c("Autonomic_Neuropathy3","Peripheral_Neuropathy3","DM_Retinopathy3","DM_Nephropathy3","HTN3","Dyslipidemia3","CAD3","Prior_TIA3","Prior_MI3","Prior_CVA3","Dr_Age","Dur","Hemoglobin","Albumin","avg.Creatinine","avg.Systolic","avg.BUN","avg.MicroAlb","AvgA1c","Sex","HDL","Max_HbA1c")
 
 compare_3_models <- function(T1Dcomp_alldata,Complication,varstoassess){
-# 1) DPN
+set.seed(123)
 dpn<-T1Dcomp_alldata[!is.na(T1Dcomp_alldata[,Complication]),
                      varstoassess]
 dpn_idx = createDataPartition(dpn[,Complication], p = 0.75, list = FALSE)
@@ -30,11 +30,11 @@ dpn_tst1<-as.matrix(dt3[,-findLinearCombos(dt3)$remove])
 
 ##LASSO #########
 cv.lasso <- cv.glmnet(dpn_trn1, dpn_trn_y, alpha = 1, family = "binomial")
-lasso <- glmnet(dpn_trn1, dpn_trn_y, alpha = 1, family = "binomial",
-                lambda = cv.lasso$lambda.min)
+# lasso <- glmnet(dpn_trn1, dpn_trn_y, alpha = 1, family = "binomial",
+#                 lambda = cv.lasso$lambda.1se)
 
 # Make predictions on the test data
-dpn_lasso_test_prob = predict(lasso, newx = dpn_tst1, type = "response",na.action = na.pass)
+dpn_lasso_test_prob = predict(cv.lasso, s = "lambda.min",exact=F,newx = dpn_tst1, type = "response",na.action = na.pass)
 dpn_lasso_test_roc = roc(dpn_tst[,Complication] ~ dpn_lasso_test_prob, plot = TRUE, print.auc = TRUE)
 
 
@@ -97,8 +97,8 @@ comp_obj<-list("trn"=dpn_trn1,
                "trn_y"=dpn_trn_y,
                "tst"=dpn_tst1,
                "tst_y"=dpn_tst$Complication,
-               "lasso_mod"=lasso,
-               "lasso_coef"=coef(lasso),
+               "lasso_mod"=cv.lasso,
+               "lasso_coef"=coef(cv.lasso),
                "rfelogit_mod"=rfelogit,
                "rfelogit_coef"=rfelogit$fit,
                "customlogit_mod"=my_dpn_model,

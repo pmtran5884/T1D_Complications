@@ -146,6 +146,637 @@ cbind(
 
 ```
 
+after reading more into harrellverse stuff, have ideas of things to try
+mostly inspired by this blog: https://www.nicholas-ollberding.com/post/an-introduction-to-the-harrell-verse-predictive-modeling-using-the-hmisc-and-rms-packages/
+
+use spiked histogram to see if something happens around puberty onset t1d
+use spiked histogram to assess nonlinearity
+use rcs for age and dur
+try out the fancy interaction functions and plots
+predict multiple bp and hba1cs on one plot
+chunk test the related variables
+
+read this for ideas about the proteins, something about rcs and pca
+https://www.fharrell.com/post/score-data-reduction/
+
+outline of analysis
+construct a full model of all possible clinical variables
+compare to subset with 4 variables
+cant fit rcs for all continuous because too many df for variables
+
+
+```{r}
+#code ideas from reading harrellverse stuff
+library(ggplot2)
+library(rms)
+#load and subset data
+vars <-
+  c(
+    "Peripheral_Neuropathy3",
+    "Autonomic_Neuropathy3",
+    "DM_Retinopathy3",
+    "DM_Nephropathy3",
+    
+    "Blindness_DM3",
+    "Photocoagulation3",
+    "Amputation3",
+    "Diabetic_Foot_Ulcer3",
+    "Peripheral_Neuropathy_Type",
+    
+    "Sex",
+    "Race",
+    "Smoking",
+    
+    "HTN3",
+    "Dyslipidemia3",
+    "CAD3",
+    "Prior_Angioplasty_Stent3",
+    "Prior_CABG3",
+    "Prior_CVA3",
+    "Prior_MI3",
+    "Prior_TIA3",
+    
+    "Dr_Age",
+    "Dx_Age",
+    "Dur",
+    
+    "Hemoglobin",
+    "Albumin",
+    "LDL",
+    "Total_Cholesterol",
+    "Triglycerides",
+    "HDL",
+    "avg.BUN",
+    "avg.Creatinine",
+    "avg.Systolic",
+    "avg.diastolic",
+    "avg.MicroAlb",
+    "ACR",
+    "AvgA1c",
+    "SDA1c",
+    "HbA1c_3.1",
+    "Max_HbA1c",
+    
+    "Insulin..Aspart..Human",
+    "Insulin..Lispro..Human",
+    "insulin.glargine..rDNA.origin..injection",
+    "acetYes",
+    "atorvastatin.calcium",
+    "levothYes",
+    "lisinopril",
+    "ThYes",
+    "Simvastatin",
+    "ramipril",
+    "ibandronate.sodium",
+    "Escitalopram",
+    "Insulin..Isophane..Human",
+    "Valsartan",
+    "insulin.detemir",
+    "insulin.glulisine.RDNA.origin",
+    "Insulin.regular.human.recombinant",
+    "insulin..human.recombinant",
+    "lovastatin"
+  )
+T1Dcomp_alldata<-read.csv("2_T1DComplications data_cleaned for Paul.csv")[,vars]
+T1Dcomp_alldata$Peripheral_Neuropathy3<-ifelse(T1Dcomp_alldata$Peripheral_Neuropathy3=="Yes",1,0)
+T1Dcomp_alldata$Autonomic_Neuropathy3<-ifelse(T1Dcomp_alldata$Autonomic_Neuropathy3=="Yes",1,0)
+T1Dcomp_alldata$DM_Retinopathy3<-ifelse(T1Dcomp_alldata$DM_Retinopathy3=="Yes",1,0)
+T1Dcomp_alldata$DM_Nephropathy3<-ifelse(T1Dcomp_alldata$DM_Nephropathy3=="Yes",1,0)
+dd <- datadist(T1Dcomp_alldata)
+options(datadist = "dd")
+
+#describe all variables
+Hmisc::describe(T1Dcomp_alldata)
+
+#summary table stratified by outcome
+s <- Hmisc::summaryM(    Autonomic_Neuropathy3+
+    DM_Retinopathy3+
+    DM_Nephropathy3+
+    
+    Blindness_DM3+
+    Photocoagulation3+
+    Amputation3+
+    Diabetic_Foot_Ulcer3+
+    Peripheral_Neuropathy_Type+
+    
+    Sex+
+    Race+
+    Smoking+
+    
+    HTN3+
+    Dyslipidemia3+
+    CAD3+
+    Prior_Angioplasty_Stent3+
+    Prior_CABG3+
+    Prior_CVA3+
+    Prior_MI3+
+    Prior_TIA3+
+    
+    Dr_Age+
+    Dx_Age+
+    Dur+
+    
+    Hemoglobin+
+    Albumin+
+    LDL+
+    Total_Cholesterol+
+    Triglycerides+
+    HDL+
+    avg.BUN+
+    avg.Creatinine+
+    avg.Systolic+
+    avg.diastolic+
+    avg.MicroAlb+
+    ACR+
+    AvgA1c+
+    SDA1c+
+    HbA1c_3.1+
+    Max_HbA1c+
+    
+    Insulin..Aspart..Human+
+    Insulin..Lispro..Human+
+    insulin.glargine..rDNA.origin..injection+
+    acetYes+
+    atorvastatin.calcium+
+    levothYes+
+    lisinopril+
+    ThYes+
+    Simvastatin+
+    ramipril+
+    ibandronate.sodium+
+    Escitalopram+
+    Insulin..Isophane..Human+
+    Valsartan+
+    insulin.detemir+
+    insulin.glulisine.RDNA.origin+
+    Insulin.regular.human.recombinant+
+    insulin..human.recombinant+
+    lovastatin  ~ Peripheral_Neuropathy3, data = T1Dcomp_alldata,
+overall = TRUE, test = TRUE, continuous = 5)
+
+s
+
+#spiked histogram to see distribution of risk
+a <- ggplot(T1Dcomp_alldata, aes(x = Dr_Age, y = Peripheral_Neuropathy3)) +
+  Hmisc::histSpikeg(Peripheral_Neuropathy3 ~ Dr_Age, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nAge", y = "Probability(DPN)\n")
+b <- ggplot(T1Dcomp_alldata, aes(x = Dr_Age, y = Autonomic_Neuropathy3)) +
+  Hmisc::histSpikeg(Autonomic_Neuropathy3 ~ Dr_Age, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nAge", y = "Probability(AN)\n")
+c <- ggplot(T1Dcomp_alldata, aes(x = Dr_Age, y = DM_Retinopathy3)) +
+  Hmisc::histSpikeg(DM_Retinopathy3 ~ Dr_Age, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nAge", y = "Probability(DR)\n")
+d <- ggplot(T1Dcomp_alldata, aes(x = Dr_Age, y = DM_Nephropathy3)) +
+  Hmisc::histSpikeg(DM_Nephropathy3 ~ Dr_Age, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nAge", y = "Probability(DN)\n")
+
+e <- ggplot(T1Dcomp_alldata, aes(x = Dx_Age, y = Peripheral_Neuropathy3)) +
+  Hmisc::histSpikeg(Peripheral_Neuropathy3 ~ Dx_Age, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nDx_Age", y = "Probability(DPN)\n")
+f <- ggplot(T1Dcomp_alldata, aes(x = Dx_Age, y = Autonomic_Neuropathy3)) +
+  Hmisc::histSpikeg(Autonomic_Neuropathy3 ~ Dx_Age, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nDx_Age", y = "Probability(AN)\n")
+g <- ggplot(T1Dcomp_alldata, aes(x = Dx_Age, y = DM_Retinopathy3)) +
+  Hmisc::histSpikeg(DM_Retinopathy3 ~ Dx_Age, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nDx_Age", y = "Probability(DR)\n")
+h <- ggplot(T1Dcomp_alldata, aes(x = Dx_Age, y = DM_Nephropathy3)) +
+  Hmisc::histSpikeg(DM_Nephropathy3 ~ Dx_Age, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nDx_Age", y = "Probability(DN)\n")
+
+i <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = Peripheral_Neuropathy3)) +
+  Hmisc::histSpikeg(Peripheral_Neuropathy3 ~ Dur, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nT1D_Dur", y = "Probability(DPN)\n")
+j <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = Autonomic_Neuropathy3)) +
+  Hmisc::histSpikeg(Autonomic_Neuropathy3 ~ Dur, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nT1D_Dur", y = "Probability(AN)\n")
+k <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = DM_Retinopathy3)) +
+  Hmisc::histSpikeg(DM_Retinopathy3 ~ Dur, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nT1D_Dur", y = "Probability(DR)\n")
+l <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = DM_Nephropathy3)) +
+  Hmisc::histSpikeg(DM_Nephropathy3 ~ Dur, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nT1D_Dur", y = "Probability(DN)\n")
+
+m <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = AvgA1c)) +
+  Hmisc::histSpikeg(Peripheral_Neuropathy3 ~ AvgA1c, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nAvgA1c", y = "Probability(DPN)\n")
+n <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = AvgA1c)) +
+  Hmisc::histSpikeg(Autonomic_Neuropathy3 ~ AvgA1c, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nAvgA1c", y = "Probability(AN)\n")
+o <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = AvgA1c)) +
+  Hmisc::histSpikeg(DM_Retinopathy3 ~ AvgA1c, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nAvgA1c", y = "Probability(DR)\n")
+p <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = AvgA1c)) +
+  Hmisc::histSpikeg(DM_Nephropathy3 ~ AvgA1c, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nAvgA1c", y = "Probability(DN)\n")
+
+q <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = avg.Systolic)) +
+  Hmisc::histSpikeg(Peripheral_Neuropathy3 ~ avg.Systolic, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nSystolic", y = "Probability(DPN)\n")
+r <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = avg.Systolic)) +
+  Hmisc::histSpikeg(Autonomic_Neuropathy3 ~ avg.Systolic, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nSystolic", y = "Probability(AN)\n")
+s <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = avg.Systolic)) +
+  Hmisc::histSpikeg(DM_Retinopathy3 ~ avg.Systolic, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nSystolic", y = "Probability(DR)\n")
+t <- ggplot(T1Dcomp_alldata, aes(x = Dur, y = avg.Systolic)) +
+  Hmisc::histSpikeg(DM_Nephropathy3 ~ avg.Systolic, lowess = TRUE, data = T1Dcomp_alldata) +
+  labs(x = "\nSystolic", y = "Probability(DN)\n")
+
+ #use rcs
+DPNselect <- lrm(Peripheral_Neuropathy3 ~
+    rcs(Dr_Age,3)+
+    Dur+
+    avg.Systolic+
+    rcs(Dx_Age,5)+
+    rcs(AvgA1c,4),
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+ANselect <- lrm(Autonomic_Neuropathy3 ~
+    rcs(Dr_Age,3)+
+    Dur+
+    rcs(Dx_Age,5)+
+    avg.Systolic+
+    rcs(AvgA1c,4),
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+DRselect <- lrm(DM_Retinopathy3 ~
+    rcs(Dr_Age,3)+
+    rcs(Dur,3)+
+    rcs(Dx_Age,5)+
+    avg.Systolic+
+    rcs(AvgA1c,4),
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+DNselect <- lrm(DM_Nephropathy3 ~
+    rcs(Dr_Age,3)+
+    Dur+
+    rcs(Dx_Age,5)+
+    avg.Systolic+
+    rcs(AvgA1c,4),
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+#multiple values of any variable
+a2<-ggplot(Predict(DPNselect, Dr_Age, AvgA1c = c(5, 7, 9,11), fun = plogis))
+c2<-ggplot(Predict(DPNselect, Dr_Age, avg.Systolic = c(120, 140, 160, 180), fun = plogis))
+
+e2<-ggplot(Predict(ANselect, Dr_Age, AvgA1c = c(5, 7, 9,11), fun = plogis))
+g2<-ggplot(Predict(ANselect, Dr_Age, avg.Systolic = c(120, 140, 160, 180), fun = plogis))
+
+i2<-ggplot(Predict(DRselect, Dr_Age, AvgA1c = c(5, 7, 9,11), fun = plogis))
+k2<-ggplot(Predict(DRselect, Dr_Age, avg.Systolic = c(120, 140, 160, 180), fun = plogis))
+
+m2<-ggplot(Predict(DNselect, Dr_Age, AvgA1c = c(5, 7, 9,11), fun = plogis))
+o2<-ggplot(Predict(DNselect, Dr_Age, avg.Systolic = c(120, 140, 160, 180), fun = plogis))
+
+
+#save data
+saveRDS(DPNselect,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DPNmod_logit.rds")
+saveRDS(ANselect,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DANmod_logit.rds")
+saveRDS(DRselect,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DRETmod_logit.rds")
+saveRDS(DNselect,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DNEPmod_logit.rds")
+
+#summary and plot
+summary(DPNselect);summary(ANselect);summary(DRselect);summary(DNselect);plot(anova(DPNselect), what='proportion chisq');plot(anova(ANselect), what='proportion chisq');plot(anova(DRselect), what='proportion chisq');plot(anova(DNselect), what='proportion chisq');plot(Predict(DPNselect, fun=plogis));plot(Predict(ANselect, fun=plogis));plot(Predict(DRselect, fun=plogis));plot(Predict(DNselect, fun=plogis));plot(rms::calibrate(DPNselect, method="boot", B=500), las=1);plot(rms::calibrate(ANselect, method="boot", B=500), las=1);plot(rms::calibrate(DRselect, method="boot", B=500), las=1);plot(rms::calibrate(DNselect, method="boot", B=500), las=1); rms::validate(DPNselect, method="boot", B=500);rms::validate(ANselect, method="boot", B=500);rms::validate(DRselect, method="boot", B=500);rms::validate(DNselect, method="boot", B=500); cowplot::plot_grid(a,b,c,d,
+                   e,f,g,h,
+                   i,j,k,l,
+                   m,n,o,p,
+                   q,r,s,t,
+                   nrow = 5, ncol = 4, scale = .9, labels = "AUTO"); cowplot::plot_grid(a2,c2,
+                   e2,g2, 
+                   i2,k2,
+                   m2,o2,
+                   nrow = 4, ncol = 2, scale = .9, labels = "AUTO")
+
+
+
+```
+
+
+
+```{r interaction stuff, didnt work}
+##interaction##
+# DPNint <- lrm(Peripheral_Neuropathy3 ~
+#     Autonomic_Neuropathy3+
+#     DM_Retinopathy3+
+#     DM_Nephropathy3+
+#     rcs(Dr_Age,3)+
+#     rcs(Dur,3)+
+#     Dr_Age %ia% Dur+
+#     rcs(Dx_Age,5)+
+#     rcs(avg.Systolic,3)+
+#     rcs(AvgA1c,4),
+#           data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+# print(DPNint, coef = FALSE)
+# anova(DPNint)
+# ANint <- lrm(Autonomic_Neuropathy3 ~
+#     Peripheral_Neuropathy3+
+#     DM_Retinopathy3+
+#     DM_Nephropathy3+
+#     rcs(Dr_Age,3)+
+#     rcs(Dur,3)+
+#     Dr_Age %ia% Dur+
+#     rcs(Dx_Age,5)+
+#     rcs(avg.Systolic,3)+
+#     rcs(AvgA1c,4),
+#           data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+# print(ANint, coef = FALSE)
+# anova(ANint)
+# ANint2 <- lrm(Autonomic_Neuropathy3 ~
+#     Peripheral_Neuropathy3+
+#     DM_Retinopathy3+
+#     DM_Nephropathy3+
+#     rcs(Dr_Age,3)+
+#     rcs(Dur,3)+
+#     Dr_Age %ia% Dur+
+#     rcs(avg.Systolic,3)+
+#     rcs(AvgA1c,4),
+#           data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+# print(ANint, coef = FALSE)
+# anova(ANint2)
+# 
+# DRint <- lrm(DM_Retinopathy3 ~
+#     Autonomic_Neuropathy3+
+#     Peripheral_Neuropathy3+
+#     DM_Nephropathy3+
+#     rcs(Dr_Age,3)+
+#     rcs(Dur,3)+
+#     Dr_Age %ia% Dur+
+#     rcs(Dx_Age,5)+
+#     rcs(avg.Systolic,3)+
+#     rcs(AvgA1c,4),
+#           data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+# DRint2 <- lrm(DM_Retinopathy3 ~
+#     Autonomic_Neuropathy3+
+#     Peripheral_Neuropathy3+
+#     DM_Nephropathy3+
+#     rcs(Dr_Age,3)+
+#     rcs(Dur,3)+
+#     Dr_Age %ia% Dur+
+#     rcs(avg.Systolic,3)+
+#     rcs(AvgA1c,4),
+#           data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+# anova(DRint2)
+# 
+# DNint <- lrm(DM_Nephropathy3 ~
+#     Autonomic_Neuropathy3+
+#     Peripheral_Neuropathy3+
+#     DM_Retinopathy3+
+#     rcs(Dr_Age,3)+
+#     rcs(Dur,3)+
+#     Dr_Age %ia% Dur+
+#     rcs(Dx_Age,5)+
+#     rcs(avg.Systolic,3)+
+#     rcs(AvgA1c,4)+
+#     rcs(avg.MicroAlb,3),
+#           data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+# print(DNint, coef = FALSE)
+# anova(DNint)
+# 
+# 
+# pred_intx <- Predict(m3, 'pH','sulphates', fun = plogis, np = 75)
+# bplot(pred_intx, yhat ~ pH + sulphates, lfun = wireframe,
+#       ylab = "Sulphates", zlab = "Pr(Red Wine)\n")
+
+```
+
+```{r predict risk based on modifiable variables, didnt work}
+#multiple values of any variable
+a2<-ggplot(Predict(DPNselect, Dr_Age, AvgA1c = c(5, 7, 9,11), fun = plogis))
+c2<-ggplot(Predict(DPNselect, Dr_Age, avg.Systolic = c(120, 140, 160, 180), fun = plogis))
+
+e2<-ggplot(Predict(ANselect, Dr_Age, AvgA1c = c(5, 7, 9,11), fun = plogis))
+g2<-ggplot(Predict(ANselect, Dr_Age, avg.Systolic = c(120, 140, 160, 180), fun = plogis))
+
+i2<-ggplot(Predict(DRselect, Dr_Age, AvgA1c = c(5, 7, 9,11), fun = plogis))
+k2<-ggplot(Predict(DRselect, Dr_Age, avg.Systolic = c(120, 140, 160, 180), fun = plogis))
+
+m2<-ggplot(Predict(DNselect, Dr_Age, AvgA1c = c(5, 7, 9,11), fun = plogis))
+o2<-ggplot(Predict(DNselect, Dr_Age, avg.Systolic = c(120, 140, 160, 180), fun = plogis))
+
+cowplot::plot_grid(a2,c2,
+                   e2,g2, 
+                   i2,k2,
+                   m2,o2,
+                   nrow = 4, ncol = 2, scale = .9, labels = "AUTO")
+```
+
+```{r extra rms functions}
+#chunk test for multicollinearity
+f <- ols(y ~ age + tricep + waist + pol(hip,2))
+anova(f, tricep, waist, hip)  # 4 d.f. test
+
+#penalization, ridge
+pentrace(m4, seq(.01, .1, by = .01))
+m5 <- update(m4, penalty = .01)
+m5
+
+#output exact function useing
+(pred_logit <- Function(m4))
+
+#nomogram
+nom.dpn<-nomogram(DPNselect,
+                 lp.at = seq(-3,4,by=0.5),
+                 fun = function(x)1/(1+exp(-x)),
+                     fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
+                     funlabel="Risk of Complication",
+                 interact = list(Dur=c(5,10,20,30,40)),
+                 conf.int=c(0.1,0.7),
+                 abbrev=T,
+                 minlength=1,lp=F)
+```
+
+```{r full vs select logreg models, realize goal of paper is not to make a subset model which matches full model, but to predict risk in complication naive individuals}
+#DPN
+DPNfull <- lrm(Peripheral_Neuropathy3 ~ Autonomic_Neuropathy3+
+    DM_Retinopathy3+
+    DM_Nephropathy3+
+    
+    Sex+
+    Smoking+
+    
+    HTN3+
+    Dyslipidemia3+
+
+    Dr_Age+
+    Dx_Age+
+    Dur+
+    
+    Hemoglobin+
+    Albumin+
+    LDL+
+    Total_Cholesterol+
+    Triglycerides+
+    HDL+
+    avg.BUN+
+    avg.Creatinine+
+    avg.Systolic+
+    avg.diastolic+
+    avg.MicroAlb+
+    ACR+
+    AvgA1c+
+    SDA1c+
+    HbA1c_3.1+
+    Max_HbA1c,
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+DPNselect <- lrm(Peripheral_Neuropathy3 ~
+    Autonomic_Neuropathy3+
+    DM_Retinopathy3+
+    DM_Nephropathy3+
+    rcs(Dr_Age,3)+
+    rcs(Dur,3)+
+    rcs(Dx_Age,5)+
+    rcs(avg.Systolic,3)+
+    rcs(AvgA1c,4),
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+lrtest(DPNfull,DPNselect)
+DPNfull
+DPNselect
+
+#AN
+ANfull <- lrm(Autonomic_Neuropathy3 ~ Peripheral_Neuropathy3+
+    DM_Retinopathy3+
+    DM_Nephropathy3+
+    
+    Sex+
+    Smoking+
+    
+    HTN3+
+    Dyslipidemia3+
+
+    Dr_Age+
+    Dx_Age+
+    Dur+
+    
+    Hemoglobin+
+    Albumin+
+    LDL+
+    Total_Cholesterol+
+    Triglycerides+
+    HDL+
+    avg.BUN+
+    avg.Creatinine+
+    avg.Systolic+
+    avg.diastolic+
+    avg.MicroAlb+
+    ACR+
+    AvgA1c+
+    SDA1c+
+    HbA1c_3.1+
+    Max_HbA1c,
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+ANselect <- lrm(Autonomic_Neuropathy3 ~
+    Peripheral_Neuropathy3+
+    DM_Retinopathy3+
+    DM_Nephropathy3+
+    rcs(Dr_Age,3)+
+    rcs(Dur,3)+
+    rcs(Dx_Age,5)+
+    rcs(avg.Systolic,3)+
+    rcs(AvgA1c,4),
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+lrtest(ANfull,ANselect)
+ANfull
+ANselect
+
+#DR
+DRfull <- lrm(DM_Retinopathy3 ~ Autonomic_Neuropathy3+
+    Peripheral_Neuropathy3+
+    DM_Nephropathy3+
+    
+    Sex+
+    Smoking+
+    
+    HTN3+
+    Dyslipidemia3+
+
+    Dr_Age+
+    Dx_Age+
+    Dur+
+    
+    Hemoglobin+
+    Albumin+
+    LDL+
+    Total_Cholesterol+
+    Triglycerides+
+    HDL+
+    avg.BUN+
+    avg.Creatinine+
+    avg.Systolic+
+    avg.diastolic+
+    avg.MicroAlb+
+    ACR+
+    AvgA1c+
+    SDA1c+
+    HbA1c_3.1+
+    Max_HbA1c,
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+DRselect <- lrm(DM_Retinopathy3 ~
+    Autonomic_Neuropathy3+
+    Peripheral_Neuropathy3+
+    DM_Nephropathy3+
+    rcs(Dr_Age,3)+
+    rcs(Dur,3)+
+    rcs(Dx_Age,5)+
+    rcs(avg.Systolic,3)+
+    rcs(AvgA1c,4),
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+lrtest(DRfull,DRselect)
+DRfull
+DRselect
+
+#DN
+DNfull <- lrm(DM_Nephropathy3 ~ Autonomic_Neuropathy3+
+    Peripheral_Neuropathy3+
+    DM_Retinopathy3+
+    
+    Sex+
+    Smoking+
+    
+    HTN3+
+    Dyslipidemia3+
+
+    Dr_Age+
+    Dx_Age+
+    Dur+
+    
+    Hemoglobin+
+    Albumin+
+    LDL+
+    Total_Cholesterol+
+    Triglycerides+
+    HDL+
+    avg.BUN+
+    avg.Creatinine+
+    avg.Systolic+
+    avg.diastolic+
+    avg.MicroAlb+
+    ACR+
+    AvgA1c+
+    SDA1c+
+    HbA1c_3.1+
+    Max_HbA1c,
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+DNselect <- lrm(DM_Nephropathy3 ~
+    Autonomic_Neuropathy3+
+    Peripheral_Neuropathy3+
+    DM_Retinopathy3+
+    rcs(Dr_Age,3)+
+    rcs(Dur,3)+
+    rcs(Dx_Age,5)+
+    rcs(avg.Systolic,3)+
+    rcs(AvgA1c,4)+
+    rcs(avg.MicroAlb,3),
+          data = T1Dcomp_alldata, x = TRUE, y = TRUE)
+
+lrtest(DNfull,DNselect)
+DNfull
+DNselect
+
+```
 
 Figure 2. Multivariate logistic regression models for 4 complications
 A. Variables with coefficients
@@ -154,7 +785,7 @@ C. AUC of test data
 D. Interation of Age and T1D Dur
 
 #Comparing predictive models
-```{r}
+```{r feature selection method comparison, not useful according to Harrell}
 
 library(caret)
 library(doParallel)
@@ -187,91 +818,6 @@ paste("____________________________DPN____________________________");dpn$lasso_t
 
 
 ```
-
-
-#Nomogram and interaction of age and dur
-```{r}
-#nomogram
-library(rms)
-T1Dcomp_alldata<-read.csv("2_T1DComplications data_cleaned for Paul.csv")
-
-
-options(datadist='ddist')
-ddist <-datadist(T1Dcomp_alldata)
-
-# 1) dpn
-dpn.mod<-lrm(Peripheral_Neuropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-dpn.mod2<-lrm(Peripheral_Neuropathy3~Dr_Age*Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-
-nom.dpn<-nomogram(dpn.mod2,
-                 lp.at = seq(-3,4,by=0.5),
-                 fun = function(x)1/(1+exp(-x)),
-                     fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
-                     funlabel="Risk of Complication",
-                 interact = list(Dur=c(5,10,20,30,40)),
-                 conf.int=c(0.1,0.7),
-                 abbrev=T,
-                 minlength=1,lp=F)
-
-# 2) dan
-dan.mod<-lrm(Autonomic_Neuropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-dan.mod2<-lrm(Autonomic_Neuropathy3~Dr_Age*Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-
-nom.dan<-nomogram(dan.mod2,
-                 lp.at = seq(-3,4,by=0.5),
-                 fun = function(x)1/(1+exp(-x)),
-                     fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
-                     funlabel="Risk of Complication",
-                 interact = list(Dur=c(5,10,20,30,40)),
-                 conf.int=c(0.1,0.7),
-                 abbrev=T,
-                 minlength=1,lp=F)
-
-# 3) dret
-dret.mod<-lrm(DM_Retinopathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-dret.mod2<-lrm(DM_Retinopathy3~Dr_Age*Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-
-nom.dret<-nomogram(dret.mod2,
-                 lp.at = seq(-3,4,by=0.5),
-                 fun = function(x)1/(1+exp(-x)),
-                     fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
-                     funlabel="Risk of Complication",
-                 interact = list(Dur=c(5,10,20,30,40)),
-                 conf.int=c(0.1,0.7),
-                 abbrev=T,
-                 minlength=1,lp=F)
-
-# 4) dnep
-dnep.mod<-lrm(DM_Nephropathy3~Dr_Age+Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-dnep.mod2<-lrm(DM_Nephropathy3~Dr_Age*Dur+avg.Systolic+AvgA1c,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-dnep.mod3<-lrm(DM_Nephropathy3~Dr_Age*Dur+avg.Systolic+AvgA1c+avg.Creatinine,data=T1Dcomp_alldata,x=TRUE,y=TRUE)
-
-nom.dnep<-nomogram(dnep.mod2,
-                 lp.at = seq(-3,4,by=0.5),
-                 fun = function(x)1/(1+exp(-x)),
-                     fun.at=c(0.001,0.01,.05,seq(0.1,0.9,by=0.1),0.95,0.99,0.999),
-                     funlabel="Risk of Complication",
-                 interact = list(Dur=c(5,10,20,30,40)),
-                 conf.int=c(0.1,0.7),
-                 abbrev=T,
-                 minlength=1,lp=F)
-
-
-#rms::validate(dpn.mod, method="boot", B=500)
-
-#save data
-saveRDS(dpn.mod2,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DPNmod_logit.rds")
-saveRDS(dan.mod2,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DANmod_logit.rds")
-saveRDS(dret.mod2,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DRETmod_logit.rds")
-saveRDS(dnep.mod2,file = "/Users/paultran/Box/Students/T1D_complications/Shiny App/T1D_Complications/data/T1Dcomp_DNEPmod_logit.rds")
-
-#summary and plot
-summary(dpn.mod2);summary(dan.mod2);summary(dret.mod2);summary(dnep.mod2);plot(nom.dpn);plot(nom.dan);plot(nom.dret);plot(nom.dnep);plot(anova(dpn.mod2), what='proportion chisq');plot(anova(dan.mod2), what='proportion chisq');plot(anova(dret.mod2), what='proportion chisq');plot(anova(dnep.mod2), what='proportion chisq');plot(Predict(dpn.mod2, fun=plogis));plot(Predict(dan.mod2, fun=plogis));plot(Predict(dret.mod2, fun=plogis));plot(Predict(dnep.mod2, fun=plogis));plot(rms::calibrate(dpn.mod, method="boot", B=500), las=1);plot(rms::calibrate(dan.mod, method="boot", B=500), las=1);plot(rms::calibrate(dret.mod, method="boot", B=500), las=1);plot(rms::calibrate(dnep.mod, method="boot", B=500), las=1);plot(rms::calibrate(dpn.mod2, method="boot", B=500), las=1);plot(rms::calibrate(dan.mod2, method="boot", B=500), las=1);plot(rms::calibrate(dret.mod2, method="boot", B=500), las=1);plot(rms::calibrate(dnep.mod2, method="boot", B=500), las=1); lrtest(dpn.mod,dpn.mod2); lrtest(dan.mod,dan.mod2); lrtest(dret.mod,dret.mod2); lrtest(dnep.mod,dnep.mod2)
-
-
-
-```
-
 
 Figure 3. Website developed to motivate change
 
