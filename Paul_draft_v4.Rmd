@@ -30,7 +30,7 @@ attach(T1Dcomp_alldata)
 
 a<-vennCounts(cbind(DPN,CAN,DR,DN))
 
-table(Peripheral_Neuropathy3);table(Autonomic_Neuropathy3);table(DM_Retinopathy3);table(DM_Nephropathy3);table(Sex);table(Race);table(HTN3);table(Dyslipidemia3);table(Blindness_DM3);table(Photocoagulation3);table(CAD3);table(Prior_Angioplasty_Stent3);table(Prior_CABG3);table(Prior_CVA3);table(Prior_MI3);table(Prior_TIA3);table(CAD3);table(Amputation3);table(Diabetic_Foot_Ulcer3);table(Peripheral_Neuropathy_Type);table(Smoking); summary(Dr_Age);summary(Dx_Age);summary(Dur);summary(Hemoglobin);summary(Albumin);summary(LDL);summary(Total_Cholesterol);summary(Triglycerides);summary(HDL);summary(avg.BUN);summary(avg.Creatinine);summary(avg.Systolic);summary(avg.diastolic);summary(avg.MicroAlb);summary(AvgA1c);summary(ACR); vennDiagram(a)
+table(Peripheral_Neuropathy3);table(Autonomic_Neuropathy3);table(DM_Retinopathy3);table(DM_Nephropathy3);table(Sex);table(Race);table(HTN3);table(Dyslipidemia3);table(Blindness_DM3);table(Photocoagulation3);table(CAD3);table(Prior_Angioplasty_Stent3);table(Prior_CABG3);table(Prior_CVA3);table(Prior_MI3);table(Prior_TIA3);table(CAD3);table(Amputation3);table(Diabetic_Foot_Ulcer3);table(Peripheral_Neuropathy_Type);table(Smoking); summary(Dr_Age);summary(Dx_Age);summary(Dur);summary(Hemoglobin);summary(Albumin);summary(LDL);summary(Total_Cholesterol);summary(Triglycerides);summary(HDL);summary(avg.BUN);summary(avg.Creatinine);summary(avg.Systolic);summary(avg.diastolic);summary(avg.MicroAlb);summary(AvgA1c);summary(ACR); summary(IFCC_AvgA1c);vennDiagram(a)
 
 ```
 

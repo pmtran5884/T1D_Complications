@@ -18,7 +18,7 @@ DNEP_mod<-readRDS("data/T1Dcomp_DNEPmod_logit.rds")
 ui <- fluidPage(
 
     # Application title
-    titlePanel("Calculate You Risk of Type 1 Diabetes Related Complications"),
+    titlePanel("T1DMicro: Calculate You Risk of Type 1 Diabetes Related  Microvascular Complications"),
 
     # Sidebar with a slider input for number of bins 
     sidebarLayout(
