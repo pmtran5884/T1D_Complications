@@ -16,7 +16,8 @@ DNEP_mod<-readRDS("data/T1Dcomp_DNEPmod_logit.rds")
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-
+    tags$head(includeHTML(("google-analytics.html")),
+              tags$meta(name="google-site-verification", content="zFzB2Sr94n7psOZnqrSmTQnrv8EdjzcrfH6GY4FZadk")),
     # Application title
     titlePanel("T1DMicro: Calculate You Risk of Type 1 Diabetes Related  Microvascular Complications"),
 
@@ -62,7 +63,13 @@ ui <- fluidPage(
            textOutput("DRETRisk"),
            textOutput("DNEPRisk"),           
            textOutput("DPNPotRisk_HTN"),
-           textOutput("DPNPotRisk_HbA1c")
+           textOutput("DPNPotRisk_HbA1c"),
+           img(src = "AU.png",height = 30, width = 60),
+           img(src = "cbgm.png",height = 30, width = 30),
+           img(src = "NIH.png",height = 30, width = 60),
+           img(src = "GRA.png",height = 30, width = 60),
+           textOutput("disclaimer")
+           
         )
     )
 )
@@ -191,7 +198,10 @@ server <- function(input, output) {
     output$funding <- renderText(paste("
                                          
                                          This work was supported by grants from the National Institutes of Health (R21HD050196, R33HD050196, and 2RO1HD37800) and JDRF (1-2004-661) to JXS. PMHT was supported by NIH fellowship (F30DK12146101A1)."))
-    
+    output$disclaimer <- renderText((paste("
+                                           
+                                           THE INFORMATION PROVIDED BY THIS TOOL IS NOT MEDICAL ADVICE AND CANNOT BE USED TO DIAGNOSE OR TREAT ANY MEDICAL CONDITION.
+                                           We do not retain any information that you provide in connection with your use of the tool.")))
 }
 
 # Run the application 
